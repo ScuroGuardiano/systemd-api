@@ -18,6 +18,7 @@ pub struct ErrorType {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApiErrorData {
   status: u16,
   error_type: ErrorType,
