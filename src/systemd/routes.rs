@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::{
   api_errors::ApiError,
-  systemd::{dbus::manager::OrgFreedesktopSystemd1Manager, dto::UnitDto},
+  systemd::{dbus::manager::OrgFreedesktopSystemd1Manager, dto::{UnitDto, ServiceDto, UnitDetails}},
   AppState,
 };
 use actix_web::{get, web, HttpResponse, Responder, http::header::ContentType};
@@ -19,7 +19,12 @@ async fn load_unit(
   let unit_info = manager.load_unit(&name)?;
   let unit_path = unit_info.deref().to_string();
   let unit_proxy = dbus.systemd_unit(&unit_path);
-  let unit = UnitDto::create_from_proxy(&unit_proxy)?;
+  let mut unit = UnitDto::create_from_proxy(&unit_proxy)?;
+  if name.split(".").last().unwrap_or("") == "service" {
+    let service_proxy = dbus.systemd_service(&unit_path);
+    let service = ServiceDto::create_from_proxy(&service_proxy)?;
+    unit.add_details(UnitDetails::Service(service));
+  }
   let serialized = serde_json::to_string(&unit).unwrap_or("{}".to_owned());
 
   Ok(

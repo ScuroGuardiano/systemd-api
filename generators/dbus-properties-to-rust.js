@@ -1,6 +1,8 @@
-const { readFileSync } = require("node:fs");
+const { readFileSync, writeFileSync } = require("node:fs");
 const { parseArgs } = require("node:util");
 const dbusTypeToRust = require("./dbus-type-to-rust");
+
+const disallowedNames = [ "type" ]
 
 function printUsageAndExit() {
     console.log("=== DBus Properties to Rust converter. ===")
@@ -40,26 +42,29 @@ if (positionals.length === 0) {
     printUsageAndExit();
 }
 
-console.log(values, positionals);
-
 let out = "";
 
 const [ inputPath ] = positionals;
 const dbusParams = readFileSync(inputPath).toString("utf-8");
-out += `struct ${values.name ?? "NoName"} {
-    ${structProperties(dbusParams)}
+
+const structName = values.name ?? "NoName";
+out += `pub struct ${structName} {
+${structProperties(dbusParams).split("\n").map(l => `  ${l}`).join("\n")}
 }`;
 
 if (values.implementation) {
-    out += `\n\nimpl UnitDto {
-    pub fn create_from_proxy(proxy: &impl OrgFreedesktopSystemd1Unit) -> Result<UnitDto, dbus::Error> {
-        ${implementation(structProperties(dbusParams))}
-    }
+    out += `\n\nimpl ${structName} {
+  pub fn create_from_proxy(proxy: &impl <Insert your implementation here>) -> Result<${structName}, dbus::Error> {
+    Ok(${structName} {
+${implementation(structProperties(dbusParams)).split("\n").map(l => `      ${l}`).join("\n")}
+    })
+  }
 }`
 }
 
-console.log(out);
-
+if (values.output) {
+    writeFileSync(values.output, out);
+}
 
 function structProperties(structParams) {
     return structParams.replace(/@.*\n/g, "")
@@ -72,6 +77,9 @@ function structProperties(structParams) {
         // I copied this shit from here -> https://stackoverflow.com/a/30521308
         // It works ^_^
         name = name.replace(/(?:^|\.?)([A-Z]+)/g, function (x,y){return "_" + y.toLowerCase()}).replace(/^_/, "")
+        if (disallowedNames.includes(name)) {
+            name = `${name}_`
+        }
         return `${name}: ${dbusTypeToRust(type)}`
     })
     .map(line => `pub ${line}`)
