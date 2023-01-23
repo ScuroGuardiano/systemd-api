@@ -109,6 +109,12 @@ pub struct UnitDto {
 
 impl UnitDto {
   pub fn create_from_proxy(proxy: &impl OrgFreedesktopSystemd1Unit) -> Result<UnitDto, dbus::Error> {
+    // Should I use maybe .unwrap_or_default in case of DBusError?
+    // Coz for example systemd-devs could remove something in the future
+    // And then this method will break.
+    // But in that case I would lose the information about error, maybe it's better
+    // To store list of failed elements with corresponding error?
+    // TODO: Think about that UwU
     Ok(UnitDto {
       id: proxy.id()?,
       names: proxy.names()?,
